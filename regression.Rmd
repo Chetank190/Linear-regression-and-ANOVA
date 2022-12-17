@@ -1,0 +1,268 @@
+---
+title: "Regression"
+author: "Chetan"
+date: "11/03/2022"
+output: html_document
+---
+
+```{r setup}
+library("rstatix")
+```
+
+## Question 16
+The variables y1, y2, y3 are the response variables. Take the time to look at the type of variables in the database.
+Fit a one (1) way ANOVA between y1 and x1. Comment on your results.
+
+
+```{r , include= TRUE}
+#anova1_2 <- read.csv("./anova1_2.csv")
+anova1_2 <- readRDS("my_data.rds")
+head(anova1_2)
+summary(anova1_2)
+str(anova1_2)
+```
+
+
+```{r pressure, echo=FALSE}
+X1.grouping <- group_by(anova1_2, X1)
+names(X1.grouping)
+get_summary_stats(X1.grouping, y1, type = "mean_sd")
+```
+
+```{r outliers }
+identify_outliers(X1.grouping, y1)
+```
+We have no extreme outliers.
+
+```{r, normality}
+shapiro_test(X1.grouping, y1)
+```
+Our data is normal as p > 0.05 for all values of X1.
+
+```{r levene test 1}
+levene_test(anova1_2, y1 ~ X1)
+
+```
+
+
+
+```{r anova test}
+anova_test(anova1_2, y1 ~ X1)
+
+# here's a map on how to interpret this:
+# Effect = grouping variables (in this case treatment)
+# DFn = degree of freedom for your groups (k-1)
+# DFd = degree of freedom for your sample (n -k)
+#F = your actual ANOVA ratio!
+#p = your significance statistics
+#p<.05 = how significant is your p in stars?
+# ges = generalized eta square (effect size!)
+
+
+
+```
+
+```{r}
+tukey_hsd(anova1_2, y1 ~ X1)
+```
+
+
+## Question 17
+Fit a simple linear regression model between y1 and X1. Comment on your results.
+
+```{r}
+mod_lm <- lm(data = anova1_2, y1 ~ X1)
+summary(mod_lm)
+
+#anova(mod_lm)
+```
+
+
+## Question 18
+Which among the groups of X1 has significantly the smallest mean (at a threshold of 5%)?
+How does the answer to the previous question help you answer this question?
+
+Answer 18:
+<!-- Group 1 of X1 has the smallest mean at the threshold of 5%. As per tukey we can analyse that the difference in group 0 and 1 of X1 is -0.48 and difference between group 1 and 2 of X1 is 1.01. -->
+
+X1 has three category variables (0, 1 and 2). From the previous linear model results we can conclude that the Intercept value is 2.02 which is the Group 0. Group 1 is lower than group 0 by average of -0.48. Group 2 is higher on average by 0.52. Therefore, Group 1 of X1 has the smallest mean at the threshold of 5%. 
+
+
+## Question 19:
+Fit a simple linear regression model between y1 and x2. Can you deduce that there is no association between y1 and X2?
+
+```{r}
+mod_lm_1 <- lm(data = anova1_2, y1 ~ X2)
+summary(mod_lm_1)
+```
+There is no association as our model is insignificant. (p = 0.4305) > 0.05.
+
+
+## Question 20:
+Fit a 2-way ANOVA between y2 and X1, X3. Is there interaction?
+
+```{r school group}
+X.grouping <- group_by(anova1_2, X1, X3)
+
+get_summary_stats(X.grouping, y2, type = "mean_sd")
+```
+
+```{r outlier and normal}
+identify_outliers(X.grouping, y2)
+shapiro_test(X.grouping, y2)
+
+```
+
+```{r levene}
+levene_test(anova1_2, y2 ~ X1 * X3)
+
+```
+Levene says our variance are homogeneous.
+
+## Run Two-way ANOVA
+
+```{r two way anova}
+
+(anova_2 <- aov(data = anova1_2, y2 ~ X1 * X3))
+summary(anova_2)
+```
+Here, first row has a simple effect of X1 on y2. The second row has a simple effect of X3 on y2. Third row denotes the complex effect of X1 and X3 on y2.
+Here, X1, X2 and X1:X3 are statistically significant as their p-value are less than 0.05.
+Our model shows interaction between X1 and X3 on y2 as p value of interaction is greater than 0.05. Therefore it is significant.
+
+
+## Question 21:
+What are we trying to find with the following R code?
+
+## Answer 21:
+
+Here, in this code we are creating a linear model of our complex effect which can be used as a ONE-way ANOVA of a simple effect.
+
+Further, using this linear model we will use error of the complex model to peer inside the interaction effect.
+There is a significant difference in mean of y2 because of interaction of X1 and X3.
+
+
+```{r}
+mod3 <- lm(y2 ~ X1 * X3, data = anova1_2)
+summary(mod3)
+```
+## Question 22:
+
+```{r}
+library(emmeans)
+emm <- emmeans(mod3, specs = c("X1", "X3"))
+emm
+```
+Here, for the threshold of 5%, the average response of y2 for the observation belonging to the treatment (1,1) is 3.04 which is less than the average of the average response for observations belonging to the treatment (0,1) i.e. 4.02 and (2,0) 2.55 which turns out to be (4.02 + 2.55)/2 = 3.285
+
+
+## Question 23:
+For a threshold of 5%, is the average response for an observation belonging to treatment (2.0) smaller than the average of the average responses for observations belonging to treatments (1.1) and (1.0)?
+
+## Answer 23:
+
+The average response for an observation belonging to treatment (2,0) is 2.55 which is greater than the average of the average responses for observations belonging to treatments (1,1) with average of 3.04 and (1,0) with average of 1.54 which turns out to be 2.29
+
+
+## Question 24:
+The variables C_X1, C_X3, C_X4; are causes for the treatment X4 and for the response y3. E_X1 and E_X2 are causes for response y3.
+1. What are the confounding variables for treatment x4 versus response y3?
+2. If you decide to fit multiple models to answer this question, show the AIC of each model.
+
+Answer 24:
+1. Confounding variables for treatment X4 and response y3 will be C_X1, C_X3, C_X4. As DAG graph would show the C_X1, C_X3, C_X4 for the increase and decrease of X4 and y3.
+
+2.
+
+```{r}
+mod1 <- lm(data = anova1_2, y3 ~ X4)
+summary(mod1)
+AIC(mod1)
+```
+Model y3 on X4 without any confounding variables gives us a significant model (p < 0.05) and AIC of 1065.58. It means with every unit increase of X4 their will be an increase of 1.72 of y3.
+
+
+Since, E_X1 and E_X2 are causes for response y3. Adding it in our model.
+```{r}
+mod2 <- lm(data = anova1_2, y3 ~ X4 + E_X1 + E_X2)
+summary(mod2)
+AIC(mod2)
+```
+
+Here, E_X1 is not significant as p = 0.17 > 0.05, so we will remove it from our linear model equation.
+
+```{r}
+mod3 <- lm(data = anova1_2, y3 ~ X4 + E_X2)
+summary(mod3)
+AIC(mod3)
+```
+Model y3 on X4 and E_X2 without any confounding variables gives us a significant model (p < 0.05) and AIC of 1030. It means with every unit increase of X4 their will be an increase of 1.63 of y3 provided other variables are constant and with every unit increase of E_X21 their will be an increase of 1.49 of y3 provided other variables are constant. We will select it as our base model for further comparisons because every variable is statistically significant, p < 0.05.
+
+
+
+As provided in question, C_X1, C_X3, C_X4; are causes for the treatment X4 and for the response y3. Therefore treating them as confounding variables.
+
+
+```{r}
+mod4 <- lm(data = anova1_2, y3 ~ X4 + E_X2 + C_X1 + C_X3 + C_X4)
+summary(mod4)
+AIC(mod4)
+```
+Here, C_X3 is not significant as p = 0.45 > 0.05, therefore removing it from our model. AIC calculated is 1013.11
+
+
+```{r}
+mod5 <- lm(data = anova1_2, y3 ~ X4 + E_X2 + C_X1 + C_X4)
+summary(mod5)
+AIC(mod5)
+```
+This model has an AIC of 1011.67 which is the lowest of all. Therefore, it is the best model. Moreover, our variables and overall model is statistically significant as p < 0.05.
+
+## Calculate the percentage change in the parameter estimate and determine whether confounding is present
+
+```{r}
+Percentage_Change = (mod5$coefficients[2] - mod3$coefficients[2])/mod3$coefficients[2]*100
+
+#Percentage_Change = (2.100 - 1.035)/2.100 * 100
+
+Percentage_Change
+```
+Since the percentage change is 11.32%, which is greater than 10%, this indicates that the association between y3 and X4 is confounded by C_X1 + C_X4.
+
+Also, adding those variables to the model the R square increase from 0.27 to 0.33, which means that these new variables are explaining 6% of the variance.
+
+Since confounding is present, we should present the results from the adjusted analysis.
+
+
+
+## Question 25:
+What are the modifying variables of the effect of X4 on the response y3? If you decide to fit multiple models to answer this question, show the AIC of each model.
+
+
+
+```{r}
+mod1 <- lm(data = anova1_2, y3 ~ X4)
+summary(mod1)
+AIC(mod1)
+```
+
+
+Model y3 on X4 without any confounding variables gives us a significant model (p < 0.05) and AIC of 1065.58. It means with every unit increase of X4 their will be an increase of 1.72 of y3.
+
+
+Adding confounding variables.
+
+```{r}
+mod6 <- lm(data = anova1_2, y3 ~ X4 + C_X1 + C_X3 + C_X4)
+summary(mod6)
+AIC(mod6)
+```
+Here, C_X3 is not significant as p = 0.21 > 0.05, therefore removing it from our model. AIC calculated is 1051.90
+
+```{r}
+mod7 <- lm(data = anova1_2, y3 ~ X4 + C_X1 + C_X4)
+summary(mod7)
+AIC(mod7)
+```
+
+Here, This model has an AIC of 1051.90. Moreover, our variables and overall model is statistically significant as p < 0.05. Our model improved from 0.15 to 0.21, our new confounding variables show increase in variance by 6%. 
